@@ -1,0 +1,8 @@
+target/
+uploads/
+.env
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+*.iml

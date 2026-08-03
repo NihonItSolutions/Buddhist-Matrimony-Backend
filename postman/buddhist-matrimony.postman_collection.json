@@ -1,0 +1,117 @@
+{
+  "info": {
+    "name": "Buddhist Matrimony Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "adminAccessToken", "value": "" },
+    { "key": "matrimonyId", "value": "" },
+    { "key": "profileId", "value": "" },
+    { "key": "interestId", "value": "" },
+    { "key": "conversationId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profileCreatedFor\": \"MYSELF\",\n  \"gender\": \"MALE\",\n  \"firstName\": \"Amit\",\n  \"lastName\": \"Patil\",\n  \"email\": \"amit@example.com\",\n  \"mobileNumber\": \"9876543210\",\n  \"countryCode\": \"+91\",\n  \"password\": \"StrongPassword@123\",\n  \"acceptedTerms\": true,\n  \"acceptedPrivacyPolicy\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Mobile OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/mobile-otp/verify",
+            "body": { "mode": "raw", "raw": "{\n  \"destination\": \"9876543210\",\n  \"otp\": \"123456\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"amit@example.com\",\n  \"password\": \"StrongPassword@123\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/token/refresh",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile Onboarding",
+      "item": [
+        { "name": "Get My Profile", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/profiles/me" } },
+        { "name": "Update Personal Details", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/profiles/me/personal-details", "body": { "mode": "raw", "raw": "{\n  \"dateOfBirth\": \"1994-01-01\",\n  \"heightInCm\": 170,\n  \"weightInKg\": 70,\n  \"maritalStatus\": \"NEVER_MARRIED\"\n}" } } },
+        { "name": "Profile Completion", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/profiles/me/completion" } },
+        { "name": "Submit For Approval", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/profiles/me/submit-for-approval" } }
+      ]
+    },
+    {
+      "name": "Photo Upload",
+      "item": [
+        { "name": "Upload Photo", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/profiles/me/photos", "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] } } }
+      ]
+    },
+    {
+      "name": "Partner Preference",
+      "item": [
+        { "name": "Update Preference", "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/partner-preferences/me", "body": { "mode": "raw", "raw": "{\n  \"minimumAge\": 24,\n  \"maximumAge\": 32,\n  \"minimumHeight\": 150,\n  \"maximumHeight\": 180,\n  \"religions\": [\"Buddhist\"],\n  \"motherTongues\": [\"Marathi\"]\n}" } } }
+      ]
+    },
+    {
+      "name": "Discovery And Interactions",
+      "item": [
+        { "name": "Search Profiles", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/profiles/search?religion=Buddhist&state=Maharashtra&page=0&size=20" } },
+        { "name": "Send Interest", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/interests/{{matrimonyId}}", "body": { "mode": "raw", "raw": "{\n  \"message\": \"I would like to connect.\"\n}" } } },
+        { "name": "Shortlist", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/shortlists/{{matrimonyId}}" } },
+        { "name": "Block", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/blocks/{{matrimonyId}}", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Do not want contact\"\n}" } } },
+        { "name": "Report", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/reports/profiles/{{matrimonyId}}", "body": { "mode": "raw", "raw": "{\n  \"reason\": \"OTHER\",\n  \"description\": \"Please review this profile.\"\n}" } } }
+      ]
+    },
+    {
+      "name": "Contact And Messaging",
+      "item": [
+        { "name": "Contact Request", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/contact-requests/{{matrimonyId}}" } },
+        { "name": "Create Conversation", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/conversations/{{matrimonyId}}" } },
+        { "name": "Send Message", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/conversations/{{conversationId}}/messages", "body": { "mode": "raw", "raw": "{\n  \"messageText\": \"Namaskar. Nice to connect.\"\n}" } } }
+      ]
+    },
+    {
+      "name": "Membership And Payment",
+      "item": [
+        { "name": "Plans", "request": { "method": "GET", "url": "{{baseUrl}}/api/membership-plans" } },
+        { "name": "Create Payment Order", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/payments/orders", "body": { "mode": "raw", "raw": "{\n  \"planCode\": \"PREMIUM\"\n}" } } },
+        { "name": "Verify Payment", "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "url": "{{baseUrl}}/api/payments/verify", "body": { "mode": "raw", "raw": "{\n  \"gatewayOrderId\": \"mock_order_id\",\n  \"gatewayPaymentId\": \"mock_payment_id\",\n  \"signature\": \"sha256-order-payment-secret\"\n}" } } }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        { "name": "Dashboard", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }], "url": "{{baseUrl}}/api/admin/dashboard" } },
+        { "name": "Approve Profile", "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }], "url": "{{baseUrl}}/api/admin/profiles/{{profileId}}/approve" } },
+        { "name": "Pending Photos", "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }], "url": "{{baseUrl}}/api/admin/photos/pending" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+CREATE TABLE profile_views (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    viewer_profile_id BIGINT NOT NULL,
+    viewed_profile_id BIGINT NOT NULL,
+    viewed_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_view_viewer FOREIGN KEY (viewer_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_view_viewed FOREIGN KEY (viewed_profile_id) REFERENCES matrimony_profiles(id)
+);
+
+CREATE TABLE interests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    sender_profile_id BIGINT NOT NULL,
+    receiver_profile_id BIGINT NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    message VARCHAR(500) NULL,
+    sent_at TIMESTAMP NOT NULL,
+    responded_at TIMESTAMP NULL,
+    cancelled_at TIMESTAMP NULL,
+    CONSTRAINT fk_interest_sender FOREIGN KEY (sender_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_interest_receiver FOREIGN KEY (receiver_profile_id) REFERENCES matrimony_profiles(id)
+);
+
+CREATE TABLE shortlisted_profiles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    owner_profile_id BIGINT NOT NULL,
+    shortlisted_profile_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_shortlist_pair UNIQUE (owner_profile_id, shortlisted_profile_id),
+    CONSTRAINT fk_shortlist_owner FOREIGN KEY (owner_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_shortlist_target FOREIGN KEY (shortlisted_profile_id) REFERENCES matrimony_profiles(id)
+);
+
+CREATE TABLE blocked_profiles (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    blocked_by_profile_id BIGINT NOT NULL,
+    blocked_profile_id BIGINT NOT NULL,
+    reason VARCHAR(500) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uk_block_pair UNIQUE (blocked_by_profile_id, blocked_profile_id),
+    CONSTRAINT fk_block_owner FOREIGN KEY (blocked_by_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_block_target FOREIGN KEY (blocked_profile_id) REFERENCES matrimony_profiles(id)
+);
+
+CREATE TABLE profile_reports (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    reporter_profile_id BIGINT NOT NULL,
+    reported_profile_id BIGINT NOT NULL,
+    reason VARCHAR(50) NOT NULL,
+    description VARCHAR(1200) NULL,
+    status VARCHAR(40) NOT NULL,
+    reviewed_by BIGINT NULL,
+    reviewed_at TIMESTAMP NULL,
+    admin_comment VARCHAR(1200) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_report_reporter FOREIGN KEY (reporter_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_report_reported FOREIGN KEY (reported_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_report_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+
+CREATE TABLE contact_requests (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    requester_profile_id BIGINT NOT NULL,
+    receiver_profile_id BIGINT NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    requested_at TIMESTAMP NOT NULL,
+    responded_at TIMESTAMP NULL,
+    CONSTRAINT fk_contact_requester FOREIGN KEY (requester_profile_id) REFERENCES matrimony_profiles(id),
+    CONSTRAINT fk_contact_receiver FOREIGN KEY (receiver_profile_id) REFERENCES matrimony_profiles(id)
+);

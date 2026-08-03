@@ -1,0 +1,137 @@
+package com.matrimony.backend.controller;
+
+import com.matrimony.backend.dto.ApiResponse;
+import com.matrimony.backend.dto.PageResponse;
+import com.matrimony.backend.dto.request.AdminRequests;
+import com.matrimony.backend.dto.response.*;
+import com.matrimony.backend.dto.response.CatalogResponses.MembershipPlanResponse;
+import com.matrimony.backend.dto.response.PaymentResponses.PaymentResponse;
+import com.matrimony.backend.dto.response.PaymentResponses.SubscriptionResponse;
+import com.matrimony.backend.service.AdminService;
+import com.matrimony.backend.service.CatalogService;
+import com.matrimony.backend.service.RelationshipManagerService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+@RestController
+@RequestMapping("/api/admin")
+@RequiredArgsConstructor
+@Tag(name = "Administration")
+public class AdminController {
+    private final AdminService adminService;
+    private final CatalogService catalogService;
+    private final RelationshipManagerService relationshipManagerService;
+
+    @GetMapping("/dashboard")
+    ApiResponse<AdminDashboardResponse> dashboard(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return ApiResponse.ok("Dashboard", adminService.dashboard(fromDate, toDate));
+    }
+
+    @GetMapping("/users")
+    ApiResponse<PageResponse<UserMeResponse>> users(@PageableDefault(size = 20) Pageable pageable) {
+        return ApiResponse.ok("Users", adminService.users(pageable));
+    }
+
+    @GetMapping("/users/{userId}")
+    ApiResponse<UserMeResponse> user(@PathVariable Long userId) {
+        return ApiResponse.ok("User", adminService.user(userId));
+    }
+
+    @PatchMapping("/users/{userId}/activate")
+    ApiResponse<Void> activateUser(@PathVariable Long userId) { adminService.activateUser(userId); return ApiResponse.ok("User activated", null); }
+
+    @PatchMapping("/users/{userId}/suspend")
+    ApiResponse<Void> suspendUser(@PathVariable Long userId) { adminService.suspendUser(userId); return ApiResponse.ok("User suspended", null); }
+
+    @PatchMapping("/users/{userId}/role")
+    ApiResponse<Void> role(@PathVariable Long userId, @Valid @RequestBody AdminRequests.RoleUpdateRequest request) { adminService.updateRole(userId, request); return ApiResponse.ok("Role updated", null); }
+
+    @DeleteMapping("/users/{userId}")
+    ResponseEntity<Void> deleteUser(@PathVariable Long userId) { adminService.deleteUser(userId); return ResponseEntity.noContent().build(); }
+
+    @GetMapping("/profiles")
+    ApiResponse<PageResponse<ProfileDetailsResponse>> profiles(@PageableDefault(size = 20) Pageable pageable) {
+        return ApiResponse.ok("Profiles", adminService.profiles(pageable));
+    }
+
+    @GetMapping("/profiles/{profileId}")
+    ApiResponse<ProfileDetailsResponse> profile(@PathVariable Long profileId) { return ApiResponse.ok("Profile", adminService.profile(profileId)); }
+
+    @PatchMapping("/profiles/{profileId}/approve")
+    ApiResponse<Void> approveProfile(@PathVariable Long profileId) { adminService.approveProfile(profileId); return ApiResponse.ok("Profile approved", null); }
+
+    @PatchMapping("/profiles/{profileId}/reject")
+    ApiResponse<Void> rejectProfile(@PathVariable Long profileId, @Valid @RequestBody AdminRequests.RejectionRequest request) { adminService.rejectProfile(profileId, request); return ApiResponse.ok("Profile rejected", null); }
+
+    @PatchMapping("/profiles/{profileId}/suspend")
+    ApiResponse<Void> suspendProfile(@PathVariable Long profileId) { adminService.suspendProfile(profileId); return ApiResponse.ok("Profile suspended", null); }
+
+    @PatchMapping("/profiles/{profileId}/reactivate")
+    ApiResponse<Void> reactivateProfile(@PathVariable Long profileId) { adminService.reactivateProfile(profileId); return ApiResponse.ok("Profile reactivated", null); }
+
+    @GetMapping("/photos/pending")
+    ApiResponse<PageResponse<PhotoResponse>> pendingPhotos(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Pending photos", adminService.pendingPhotos(pageable)); }
+
+    @GetMapping("/photos/{photoId}")
+    ApiResponse<PhotoResponse> photo(@PathVariable Long photoId) { return ApiResponse.ok("Photo", adminService.photo(photoId)); }
+
+    @PatchMapping("/photos/{photoId}/approve")
+    ApiResponse<Void> approvePhoto(@PathVariable Long photoId) { adminService.approvePhoto(photoId); return ApiResponse.ok("Photo approved", null); }
+
+    @PatchMapping("/photos/{photoId}/reject")
+    ApiResponse<Void> rejectPhoto(@PathVariable Long photoId, @Valid @RequestBody AdminRequests.RejectionRequest request) { adminService.rejectPhoto(photoId, request); return ApiResponse.ok("Photo rejected", null); }
+
+    @GetMapping("/reports")
+    ApiResponse<PageResponse<?>> reports(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Reports", adminService.reports(pageable)); }
+
+    @GetMapping("/reports/{reportId}")
+    ApiResponse<PageResponse<?>> report(@PathVariable Long reportId, @PageableDefault(size = 1) Pageable pageable) { return ApiResponse.ok("Reports", adminService.reports(pageable)); }
+
+    @PatchMapping({"/reports/{reportId}/review", "/reports/{reportId}/resolve", "/reports/{reportId}/reject"})
+    ApiResponse<Void> resolveReport(@PathVariable Long reportId, @RequestBody AdminRequests.ReportReviewRequest request) { adminService.resolveReport(reportId, request); return ApiResponse.ok("Report updated", null); }
+
+    @GetMapping("/payments")
+    ApiResponse<PageResponse<PaymentResponse>> payments(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Payments", adminService.payments(pageable)); }
+
+    @GetMapping("/payments/{paymentId}")
+    ApiResponse<PageResponse<PaymentResponse>> payment(@PathVariable Long paymentId, @PageableDefault(size = 1) Pageable pageable) { return ApiResponse.ok("Payments", adminService.payments(pageable)); }
+
+    @GetMapping("/subscriptions")
+    ApiResponse<PageResponse<SubscriptionResponse>> subscriptions(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Subscriptions", adminService.subscriptions(pageable)); }
+
+    @GetMapping("/subscriptions/{subscriptionId}")
+    ApiResponse<PageResponse<SubscriptionResponse>> subscription(@PathVariable Long subscriptionId, @PageableDefault(size = 1) Pageable pageable) { return ApiResponse.ok("Subscriptions", adminService.subscriptions(pageable)); }
+
+    @PostMapping("/subscriptions/{subscriptionId}/extend")
+    ApiResponse<Void> extendSubscription(@PathVariable Long subscriptionId, @RequestBody AdminRequests.ExtendSubscriptionRequest request) { return ApiResponse.ok("Subscription extension recorded for gateway/manual processing", null); }
+
+    @PostMapping("/payments/{paymentId}/refund-request")
+    ApiResponse<Void> refundRequest(@PathVariable Long paymentId) { return ApiResponse.ok("Refund request recorded for gateway confirmation", null); }
+
+    @PostMapping("/membership-plans")
+    ApiResponse<MembershipPlanResponse> createPlan(@Valid @RequestBody AdminRequests.MembershipPlanRequest request) { return ApiResponse.ok("Membership plan created", catalogService.createPlan(request)); }
+
+    @PutMapping("/membership-plans/{planId}")
+    ApiResponse<MembershipPlanResponse> updatePlan(@PathVariable Long planId, @Valid @RequestBody AdminRequests.MembershipPlanRequest request) { return ApiResponse.ok("Membership plan updated", catalogService.updatePlan(planId, request)); }
+
+    @PatchMapping("/membership-plans/{planId}/status")
+    ApiResponse<MembershipPlanResponse> status(@PathVariable Long planId, @RequestBody AdminRequests.StatusRequest request) { return ApiResponse.ok("Membership plan status updated", catalogService.updatePlanStatus(planId, request)); }
+
+    @DeleteMapping("/membership-plans/{planId}")
+    ResponseEntity<Void> deletePlan(@PathVariable Long planId) { catalogService.deletePlan(planId); return ResponseEntity.noContent().build(); }
+
+    @PostMapping("/relationship-managers/{managerId}/customers/{userId}")
+    ApiResponse<Void> assign(@PathVariable Long managerId, @PathVariable Long userId) { relationshipManagerService.assign(managerId, userId); return ApiResponse.ok("Customer assigned", null); }
+
+    @DeleteMapping("/relationship-managers/{managerId}/customers/{userId}")
+    ResponseEntity<Void> unassign(@PathVariable Long managerId, @PathVariable Long userId) { relationshipManagerService.unassign(managerId, userId); return ResponseEntity.noContent().build(); }
+}

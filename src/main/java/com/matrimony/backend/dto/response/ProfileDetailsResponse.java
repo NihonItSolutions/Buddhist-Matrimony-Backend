@@ -1,0 +1,56 @@
+package com.matrimony.backend.dto.response;
+
+import com.matrimony.backend.dto.request.CareerDetailsRequest;
+import com.matrimony.backend.dto.request.EducationDetailsRequest;
+import com.matrimony.backend.dto.request.FamilyDetailsRequest;
+import com.matrimony.backend.dto.request.HoroscopeDetailsRequest;
+import com.matrimony.backend.dto.request.LifestyleDetailsRequest;
+import com.matrimony.backend.dto.request.PartnerPreferenceRequest;
+import com.matrimony.backend.enums.Gender;
+import com.matrimony.backend.enums.MaritalStatus;
+import com.matrimony.backend.enums.ProfileCreatedFor;
+import com.matrimony.backend.enums.ProfileStatus;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+public record ProfileDetailsResponse(
+        String matrimonyId,
+        ProfileCreatedFor profileCreatedFor,
+        String firstName,
+        String middleName,
+        String lastName,
+        Gender gender,
+        LocalDate dateOfBirth,
+        Integer age,
+        Integer heightInCm,
+        Integer weightInKg,
+        MaritalStatus maritalStatus,
+        Integer numberOfChildren,
+        String childrenLivingStatus,
+        String physicalStatus,
+        String motherTongue,
+        String religion,
+        String community,
+        String subCommunity,
+        Boolean casteNoBar,
+        String gothra,
+        String manglikStatus,
+        String country,
+        String state,
+        String district,
+        String city,
+        String aboutMe,
+        ProfileStatus profileStatus,
+        int profileCompleteness,
+        LocalDateTime lastActiveAt,
+        EducationDetailsRequest education,
+        CareerDetailsRequest career,
+        FamilyDetailsRequest family,
+        LifestyleDetailsRequest lifestyle,
+        HoroscopeDetailsRequest horoscope,
+        PartnerPreferenceRequest partnerPreference,
+        List<PhotoResponse> photos
+) {
+}
