@@ -47,18 +47,21 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmailIgnoreCase(request.email())) {
+        String email = request.email().trim().toLowerCase();
+        String mobileNumber = request.mobileNumber().trim();
+        String countryCode = request.countryCode().trim();
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new DuplicateResourceException("Email is already registered");
         }
-        if (userRepository.existsByMobileNumber(request.mobileNumber())) {
+        if (userRepository.existsByMobileNumber(mobileNumber)) {
             throw new DuplicateResourceException("Mobile number is already registered");
         }
 
         User user = new User();
         user.setMatrimonyId(nextMatrimonyId());
-        user.setEmail(request.email().toLowerCase());
-        user.setMobileNumber(request.mobileNumber());
-        user.setCountryCode(request.countryCode());
+        user.setEmail(email);
+        user.setMobileNumber(mobileNumber);
+        user.setCountryCode(countryCode);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(Role.USER);
         user.setAccountStatus(AccountStatus.PENDING_VERIFICATION);
@@ -82,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
         privacy.setProfile(profile);
         privacySettingRepository.save(privacy);
 
-        sendOtp(new OtpRequest(user.getMobileNumber()), OtpPurpose.MOBILE_VERIFICATION);
+        sendOtp(new OtpRequest(user.getEmail()), OtpPurpose.EMAIL_VERIFICATION);
         return authResponse(user);
     }
 
@@ -238,8 +241,9 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private User loadByIdentifier(String identifier) {
-        return userRepository.findByEmailIgnoreCase(identifier)
-                .or(() -> userRepository.findByMobileNumber(identifier))
+        String normalizedIdentifier = identifier == null ? "" : identifier.trim();
+        return userRepository.findByEmailIgnoreCase(normalizedIdentifier)
+                .or(() -> userRepository.findByMobileNumber(normalizedIdentifier))
                 .orElseThrow(() -> new UnauthorizedOperationException("Invalid credentials"));
     }
 
