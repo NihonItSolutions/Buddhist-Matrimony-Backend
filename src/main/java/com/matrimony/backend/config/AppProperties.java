@@ -44,7 +44,12 @@ public record AppProperties(
     public record FileStorage(
             @NotBlank String location,
             long maxPhotoSizeBytes,
-            @NotEmpty List<String> allowedPhotoContentTypes
+            @NotEmpty List<String> allowedPhotoContentTypes,
+            String provider,
+            String supabaseUrl,
+            String supabaseServiceKey,
+            String publicBucket,
+            String privateBucket
     ) {
     }
 
