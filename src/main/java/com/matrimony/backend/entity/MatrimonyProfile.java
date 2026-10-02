@@ -63,6 +63,9 @@ public class MatrimonyProfile {
     @Column(name = "weight_in_kg")
     private Integer weightInKg;
 
+    @Column(name = "blood_group", length = 10)
+    private String bloodGroup;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "marital_status", length = 40)
     private MaritalStatus maritalStatus;
@@ -117,6 +120,15 @@ public class MatrimonyProfile {
 
     @Column(name = "residency_status", length = 80)
     private String residencyStatus;
+
+    @Column(name = "leaving_certificate_url")
+    private String leavingCertificateUrl;
+
+    @Column(name = "aadhar_card_url")
+    private String aadharCardUrl;
+
+    @Column(name = "documents_verified", nullable = false)
+    private boolean documentsVerified = false;
 
     @Column(name = "about_me", length = 2000)
     private String aboutMe;

@@ -26,10 +26,13 @@ public record ProfileDetailsResponse(
         Integer age,
         Integer heightInCm,
         Integer weightInKg,
+        String bloodGroup,
         MaritalStatus maritalStatus,
         Integer numberOfChildren,
         String childrenLivingStatus,
         String physicalStatus,
+        String leavingCertificateUrl,
+        String aadharCardUrl,
         String motherTongue,
         String religion,
         String community,
@@ -54,6 +57,9 @@ public record ProfileDetailsResponse(
         LifestyleDetailsRequest lifestyle,
         HoroscopeDetailsRequest horoscope,
         PartnerPreferenceRequest partnerPreference,
-        List<PhotoResponse> photos
+        List<PhotoResponse> photos,
+        boolean shortlisted,
+        String interestStatus,
+        String contactRequestStatus
 ) {
 }

@@ -123,6 +123,12 @@ public class SupportServiceImpl implements SupportService {
 
     @Override
     @Transactional(readOnly = true)
+    public PageResponse<?> allStories(Pageable pageable) {
+        return PageResponse.from(successStoryRepository.findAll(pageable).map(this::storyResponse));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Object story(Long id) {
         SuccessStory story = successStoryRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Success story not found"));
         if (story.getStatus() != SuccessStoryStatus.APPROVED) {
@@ -152,8 +158,31 @@ public class SupportServiceImpl implements SupportService {
 
     @Override
     @Transactional
+    public void approveStory(Long id) {
+        SuccessStory story = successStoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Success story not found"));
+        story.setStatus(SuccessStoryStatus.APPROVED);
+        story.setApprovedBy(currentUser.get());
+        story.setApprovedAt(java.time.LocalDateTime.now());
+        successStoryRepository.save(story);
+    }
+
+    @Override
+    @Transactional
+    public void rejectStory(Long id, String reason) {
+        SuccessStory story = successStoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Success story not found"));
+        story.setStatus(SuccessStoryStatus.REJECTED);
+        successStoryRepository.save(story);
+    }
+
+    @Override
+    @Transactional
     public void deleteStory(Long id) {
-        successStoryRepository.delete(ownedStory(id));
+        // Admin can delete any story; user can only delete their own
+        SuccessStory story = successStoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Success story not found"));
+        successStoryRepository.delete(story);
     }
 
     private SupportTicket ownedTicket(Long id) {

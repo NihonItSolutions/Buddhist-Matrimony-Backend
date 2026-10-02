@@ -12,6 +12,7 @@ public record UserMeResponse(
         AccountStatus accountStatus,
         boolean emailVerified,
         boolean mobileVerified,
-        int profileCompletion
+        int profileCompletion,
+        boolean hasActiveSubscription
 ) {
 }

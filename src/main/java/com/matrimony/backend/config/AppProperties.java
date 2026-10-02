@@ -56,8 +56,28 @@ public record AppProperties(
     public record Payment(
             @NotBlank String gateway,
             @NotBlank String webhookSecret,
-            @NotBlank String signatureSecret
+            @NotBlank String signatureSecret,
+            Stripe stripe,
+            Cashfree cashfree,
+            Upi upi
     ) {
+        public record Stripe(
+                String secretKey,
+                String publishableKey
+        ) {}
+
+        public record Cashfree(
+                String appId,
+                String secretKey,
+                String env,
+                String apiVersion
+        ) {}
+
+        public record Upi(
+                String vpa,
+                String payeeName,
+                String adminAlertEmail
+        ) {}
     }
 
     public record Development(

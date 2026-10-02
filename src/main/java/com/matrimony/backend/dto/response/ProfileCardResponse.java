@@ -14,9 +14,11 @@ public record ProfileCardResponse(
         String primaryPhotoUrl,
         boolean photoVisible,
         boolean profileVerified,
+        boolean documentsVerified,
         LocalDateTime lastActiveAt,
         int matchScore,
         boolean shortlisted,
-        String interestStatus
+        String interestStatus,
+        String gender
 ) {
 }

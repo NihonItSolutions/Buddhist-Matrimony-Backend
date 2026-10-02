@@ -25,5 +25,9 @@ public interface MatrimonyProfileRepository extends JpaRepository<MatrimonyProfi
 
     Page<MatrimonyProfile> findByProfileStatus(ProfileStatus status, Pageable pageable);
 
+    Page<MatrimonyProfile> findByProfileStatusAndIdNot(ProfileStatus status, Long excludedProfileId, Pageable pageable);
+
+    Page<MatrimonyProfile> findByProfileStatusAndGenderAndIdNot(ProfileStatus status, Gender gender, Long excludedProfileId, Pageable pageable);
+
     long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

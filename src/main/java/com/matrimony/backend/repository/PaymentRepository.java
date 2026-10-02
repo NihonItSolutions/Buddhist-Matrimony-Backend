@@ -17,6 +17,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByGatewayPaymentId(String gatewayPaymentId);
 
+    boolean existsByBalanceUtr(String balanceUtr);
+
+    Optional<Payment> findFirstByUserIdAndStatusAndPaymentGatewayAndGatewayPaymentIdIsNullOrderByIdDesc(Long userId, PaymentStatus status, String paymentGateway);
+
+    long countByStatusAndPaymentGatewayAndGatewayPaymentIdIsNotNull(PaymentStatus status, String paymentGateway);
+
     Page<Payment> findByUserId(Long userId, Pageable pageable);
 
     @Query("select coalesce(sum(p.amount), 0) from Payment p where p.status = :status and p.paidAt between :from and :to")

@@ -47,7 +47,11 @@ public class CatalogServiceImpl implements CatalogService {
     @Override
     @Transactional(readOnly = true)
     public SubscriptionResponse mySubscription() {
-        return subscriptionRepository.findFirstByUserIdAndStatusOrderByEndDateDesc(currentUser.get().getId(), SubscriptionStatus.ACTIVE)
+        Long userId = currentUser.get().getId();
+        // Show the current plan; if none is running, show the most recent one so the page can say "expired".
+        return subscriptionRepository.findCurrentActive(userId)
+                .or(() -> subscriptionRepository.findFirstByUserIdAndStatusOrderByEndDateDesc(userId, SubscriptionStatus.ACTIVE))
+                .or(() -> subscriptionRepository.findFirstByUserIdAndStatusOrderByEndDateDesc(userId, SubscriptionStatus.EXPIRED))
                 .map(this::toSubscription)
                 .orElse(null);
     }
@@ -56,13 +60,14 @@ public class CatalogServiceImpl implements CatalogService {
     @Transactional(readOnly = true)
     public Object mySubscriptionUsage() {
         SubscriptionResponse subscription = mySubscription();
-        return Map.of("subscription", subscription == null ? "NONE" : subscription, "premiumFilters", subscription != null);
+        boolean active = subscription != null && subscription.status() == SubscriptionStatus.ACTIVE;
+        return Map.of("subscription", subscription == null ? "NONE" : subscription, "premiumFilters", active);
     }
 
     @Override
     @Transactional
     public void cancelMySubscription() {
-        subscriptionRepository.findFirstByUserIdAndStatusOrderByEndDateDesc(currentUser.get().getId(), SubscriptionStatus.ACTIVE)
+        subscriptionRepository.findCurrentActive(currentUser.get().getId())
                 .ifPresent(subscription -> subscription.setStatus(SubscriptionStatus.CANCELLED));
     }
 
@@ -132,7 +137,7 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private SubscriptionResponse toSubscription(UserSubscription subscription) {
-        return new SubscriptionResponse(subscription.getId(), subscription.getMembershipPlan().getCode(), subscription.getStatus(), subscription.getStartDate(), subscription.getEndDate(), subscription.getRemainingContactViews(), subscription.getRemainingMessages(), subscription.getRemainingInterestsToday());
+        return SubscriptionResponse.from(subscription);
     }
 
     private MasterDataResponse toMaster(MasterData data) {

@@ -39,6 +39,9 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private PaymentStatus status = PaymentStatus.CREATED;
+    @Column(precision = 12, scale = 2)
+    private BigDecimal amountReceived;
+    private String balanceUtr;
     @Column(length = 800)
     private String failureReason;
     @CreationTimestamp

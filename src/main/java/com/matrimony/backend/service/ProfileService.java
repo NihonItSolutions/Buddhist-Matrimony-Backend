@@ -50,6 +50,8 @@ public interface ProfileService {
 
     PhotoResponse uploadPhoto(MultipartFile file);
 
+    String uploadDocument(MultipartFile file);
+
     List<PhotoResponse> photos();
 
     PhotoResponse markPrimary(Long photoId);

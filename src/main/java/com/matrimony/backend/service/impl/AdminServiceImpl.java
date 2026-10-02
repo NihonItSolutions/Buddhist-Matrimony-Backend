@@ -98,6 +98,9 @@ public class AdminServiceImpl implements AdminService {
     @Transactional
     public void suspendUser(Long id) {
         User user = findUser(id);
+        if (user.getRole() == Role.ADMIN) {
+            throw new InvalidRequestException("Admin accounts cannot be suspended");
+        }
         user.setAccountStatus(AccountStatus.SUSPENDED);
         audit("USER_SUSPENDED", "User", id, null, "SUSPENDED");
     }
@@ -163,6 +166,14 @@ public class AdminServiceImpl implements AdminService {
     public void reactivateProfile(Long id) {
         findProfile(id).setProfileStatus(ProfileStatus.ACTIVE);
         audit("PROFILE_REACTIVATED", "MatrimonyProfile", id, null, "ACTIVE");
+    }
+
+    @Override
+    @Transactional
+    public void verifyDocuments(Long profileId, boolean verified) {
+        MatrimonyProfile profile = findProfile(profileId);
+        profile.setDocumentsVerified(verified);
+        audit(verified ? "DOCUMENTS_VERIFIED" : "DOCUMENTS_UNVERIFIED", "MatrimonyProfile", profileId, null, String.valueOf(verified));
     }
 
     @Override
@@ -248,7 +259,8 @@ public class AdminServiceImpl implements AdminService {
 
     private UserMeResponse toUser(User user) {
         int completion = profileRepository.findByUser(user).map(MatrimonyProfile::getProfileCompleteness).orElse(0);
-        return new UserMeResponse(user.getId(), user.getMatrimonyId(), user.getEmail(), user.getCountryCode() + user.getMobileNumber(), user.getRole(), user.getAccountStatus(), user.isEmailVerified(), user.isMobileVerified(), completion);
+        boolean hasActiveSubscription = subscriptionRepository.findCurrentActive(user.getId()).isPresent();
+        return new UserMeResponse(user.getId(), user.getMatrimonyId(), user.getEmail(), user.getCountryCode() + user.getMobileNumber(), user.getRole(), user.getAccountStatus(), user.isEmailVerified(), user.isMobileVerified(), completion, hasActiveSubscription);
     }
 
     private ProfileDetailsResponse toProfile(MatrimonyProfile profile) {
@@ -261,15 +273,19 @@ public class AdminServiceImpl implements AdminService {
                 preferenceRepository.findByProfileId(profile.getId()).orElse(null),
                 photoRepository.findByProfileIdOrderByDisplayOrderAsc(profile.getId()),
                 true,
+                true,
+                false,
+                null,
+                null,
                 true);
     }
 
     private PaymentResponse toPayment(Payment payment) {
-        return new PaymentResponse(payment.getId(), payment.getGatewayOrderId(), payment.getGatewayPaymentId(), payment.getAmount(), payment.getCurrency(), payment.getStatus(), payment.getCreatedAt(), payment.getPaidAt());
+        return PaymentResponse.from(payment);
     }
 
     private SubscriptionResponse toSubscription(UserSubscription subscription) {
-        return new SubscriptionResponse(subscription.getId(), subscription.getMembershipPlan().getCode(), subscription.getStatus(), subscription.getStartDate(), subscription.getEndDate(), subscription.getRemainingContactViews(), subscription.getRemainingMessages(), subscription.getRemainingInterestsToday());
+        return SubscriptionResponse.from(subscription);
     }
 
     private void audit(String action, String entityType, Long entityId, String oldValue, String newValue) {

@@ -2,6 +2,7 @@ package com.matrimony.backend.specification;
 
 import com.matrimony.backend.dto.request.ProfileSearchRequest;
 import com.matrimony.backend.entity.MatrimonyProfile;
+import com.matrimony.backend.enums.Gender;
 import com.matrimony.backend.enums.ProfileStatus;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -14,10 +15,14 @@ public final class ProfileSpecifications {
     }
 
     public static Specification<MatrimonyProfile> search(ProfileSearchRequest request, Long excludedProfileId) {
+        return search(request, excludedProfileId, null);
+    }
+
+    public static Specification<MatrimonyProfile> search(ProfileSearchRequest request, Long excludedProfileId, Gender requiredGender) {
         return Specification.where(active())
                 .and(excludeSelf(excludedProfileId))
+                .and(gender(requiredGender != null ? requiredGender : request.gender()))
                 .and((root, query, cb) -> request.matrimonyId() == null ? null : cb.equal(root.get("user").get("matrimonyId"), request.matrimonyId()))
-                .and((root, query, cb) -> request.gender() == null ? null : cb.equal(root.get("gender"), request.gender()))
                 .and((root, query, cb) -> request.minimumAge() == null ? null : cb.lessThanOrEqualTo(root.get("dateOfBirth"), LocalDate.now().minusYears(request.minimumAge())))
                 .and((root, query, cb) -> request.maximumAge() == null ? null : cb.greaterThanOrEqualTo(root.get("dateOfBirth"), LocalDate.now().minusYears(request.maximumAge() + 1L).plusDays(1)))
                 .and((root, query, cb) -> request.minimumHeight() == null ? null : cb.greaterThanOrEqualTo(root.get("heightInCm"), request.minimumHeight()))
@@ -43,6 +48,10 @@ public final class ProfileSpecifications {
 
     private static Specification<MatrimonyProfile> excludeSelf(Long profileId) {
         return (root, query, cb) -> profileId == null ? null : cb.notEqual(root.get("id"), profileId);
+    }
+
+    private static Specification<MatrimonyProfile> gender(Gender gender) {
+        return (root, query, cb) -> gender == null ? null : cb.equal(root.get("gender"), gender);
     }
 
     private static Specification<MatrimonyProfile> like(String field, String value) {

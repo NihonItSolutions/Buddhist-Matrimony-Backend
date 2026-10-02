@@ -43,6 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final CurrentUser currentUser;
     private final AppProperties properties;
     private final OtpSender otpSender;
+    private final UserSubscriptionRepository subscriptionRepository;
 
     @Override
     @Transactional
@@ -227,6 +228,7 @@ public class AuthServiceImpl implements AuthService {
     public UserMeResponse me() {
         User user = currentUser.get();
         int completion = profileRepository.findByUser(user).map(MatrimonyProfile::getProfileCompleteness).orElse(0);
+        boolean hasActiveSubscription = subscriptionRepository.findCurrentActive(user.getId()).isPresent();
         return new UserMeResponse(
                 user.getId(),
                 user.getMatrimonyId(),
@@ -236,7 +238,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getAccountStatus(),
                 user.isEmailVerified(),
                 user.isMobileVerified(),
-                completion
+                completion,
+                hasActiveSubscription
         );
     }
 

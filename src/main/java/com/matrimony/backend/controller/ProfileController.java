@@ -120,6 +120,11 @@ public class ProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created("Photo uploaded for moderation", profileService.uploadPhoto(file)));
     }
 
+    @PostMapping(value = "/me/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ResponseEntity<ApiResponse<String>> uploadDocument(@RequestPart("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.created("Document uploaded successfully", profileService.uploadDocument(file)));
+    }
+
     @GetMapping("/me/photos")
     ApiResponse<List<PhotoResponse>> photos() {
         return ApiResponse.ok("Photos", profileService.photos());

@@ -23,11 +23,17 @@ public interface SupportService {
 
     PageResponse<?> publicStories(Pageable pageable);
 
+    PageResponse<?> allStories(Pageable pageable);
+
     Object story(Long id);
 
     PageResponse<?> myStories(Pageable pageable);
 
     Object updateStory(Long id, SupportRequests.SuccessStoryRequest request);
+
+    void approveStory(Long id);
+
+    void rejectStory(Long id, String reason);
 
     void deleteStory(Long id);
 }

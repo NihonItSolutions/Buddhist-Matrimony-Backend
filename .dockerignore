@@ -1,0 +1,12 @@
+target/
+uploads/
+*.log
+.env
+.env.*
+supabase-local.properties
+.idea/
+*.iml
+.git/
+postman/
+scripts/
+local-secrets.properties

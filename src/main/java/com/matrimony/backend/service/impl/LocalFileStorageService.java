@@ -46,6 +46,32 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
+    public StoredFile storeDocument(MultipartFile file, String matrimonyId) {
+        if (file.isEmpty()) {
+            throw new FileStorageException("File is empty");
+        }
+        if (file.getSize() > properties.fileStorage().maxPhotoSizeBytes()) {
+            throw new FileStorageException("File size exceeds configured maximum");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !(properties.fileStorage().allowedPhotoContentTypes().contains(contentType) || contentType.equals("application/pdf"))) {
+            throw new FileStorageException("Unsupported document content type. Must be PDF or image.");
+        }
+        String original = StringUtils.cleanPath(file.getOriginalFilename() == null ? "document" : file.getOriginalFilename());
+        String extension = extension(original, contentType);
+        String storageKey = "documents/" + matrimonyId + "/" + UUID.randomUUID() + extension;
+        Path target = Path.of(properties.fileStorage().location()).resolve(storageKey).normalize();
+        try {
+            Files.createDirectories(target.getParent());
+            file.transferTo(target);
+        } catch (IOException ex) {
+            throw new FileStorageException("Unable to store file");
+        }
+        String url = "/files/" + storageKey.replace('\\', '/');
+        return new StoredFile(storageKey, url, url);
+    }
+
+    @Override
     public void delete(String storageKey) {
         try {
             Files.deleteIfExists(Path.of(properties.fileStorage().location()).resolve(storageKey).normalize());
@@ -65,6 +91,7 @@ public class LocalFileStorageService implements FileStorageService {
         return switch (contentType) {
             case "image/png" -> ".png";
             case "image/webp" -> ".webp";
+            case "application/pdf" -> ".pdf";
             default -> ".jpg";
         };
     }

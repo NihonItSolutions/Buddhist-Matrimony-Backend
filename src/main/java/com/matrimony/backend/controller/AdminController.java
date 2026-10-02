@@ -29,6 +29,9 @@ public class AdminController {
     private final AdminService adminService;
     private final CatalogService catalogService;
     private final RelationshipManagerService relationshipManagerService;
+    private final com.matrimony.backend.service.SupportService supportService;
+    private final com.matrimony.backend.service.FileStorageService fileStorageService;
+    private final com.matrimony.backend.service.PaymentService paymentService;
 
     @GetMapping("/dashboard")
     ApiResponse<AdminDashboardResponse> dashboard(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -78,6 +81,12 @@ public class AdminController {
     @PatchMapping("/profiles/{profileId}/reactivate")
     ApiResponse<Void> reactivateProfile(@PathVariable Long profileId) { adminService.reactivateProfile(profileId); return ApiResponse.ok("Profile reactivated", null); }
 
+    @PatchMapping("/profiles/{profileId}/verify-documents")
+    ApiResponse<Void> verifyDocuments(@PathVariable Long profileId) { adminService.verifyDocuments(profileId, true); return ApiResponse.ok("Documents verified", null); }
+
+    @PatchMapping("/profiles/{profileId}/unverify-documents")
+    ApiResponse<Void> unverifyDocuments(@PathVariable Long profileId) { adminService.verifyDocuments(profileId, false); return ApiResponse.ok("Documents unverified", null); }
+
     @GetMapping("/photos/pending")
     ApiResponse<PageResponse<PhotoResponse>> pendingPhotos(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Pending photos", adminService.pendingPhotos(pageable)); }
 
@@ -100,7 +109,7 @@ public class AdminController {
     ApiResponse<Void> resolveReport(@PathVariable Long reportId, @RequestBody AdminRequests.ReportReviewRequest request) { adminService.resolveReport(reportId, request); return ApiResponse.ok("Report updated", null); }
 
     @GetMapping("/payments")
-    ApiResponse<PageResponse<PaymentResponse>> payments(@PageableDefault(size = 20) Pageable pageable) { return ApiResponse.ok("Payments", adminService.payments(pageable)); }
+    ApiResponse<PageResponse<PaymentResponse>> payments(@PageableDefault(size = 20, sort = "id", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) { return ApiResponse.ok("Payments", adminService.payments(pageable)); }
 
     @GetMapping("/payments/{paymentId}")
     ApiResponse<PageResponse<PaymentResponse>> payment(@PathVariable Long paymentId, @PageableDefault(size = 1) Pageable pageable) { return ApiResponse.ok("Payments", adminService.payments(pageable)); }
@@ -113,6 +122,25 @@ public class AdminController {
 
     @PostMapping("/subscriptions/{subscriptionId}/extend")
     ApiResponse<Void> extendSubscription(@PathVariable Long subscriptionId, @RequestBody AdminRequests.ExtendSubscriptionRequest request) { return ApiResponse.ok("Subscription extension recorded for gateway/manual processing", null); }
+
+    @GetMapping("/payments/pending-count")
+    ApiResponse<java.util.Map<String, Long>> pendingPaymentCount() {
+        return ApiResponse.ok("Payments awaiting verification", java.util.Map.of("count", paymentService.pendingVerificationCount()));
+    }
+
+    @PostMapping("/payments/{paymentId}/approve")
+    ApiResponse<PaymentResponse> approvePayment(@PathVariable Long paymentId, @Valid @RequestBody com.matrimony.backend.dto.request.PaymentRequests.ApprovePaymentRequest request) {
+        PaymentResponse payment = paymentService.verifyManualPayment(paymentId, request.amountReceived());
+        String message = payment.status() == com.matrimony.backend.enums.PaymentStatus.SUCCESS
+                ? "Payment verified. Membership activated and user notified."
+                : "Amount is less than plan price. Marked as underpaid and user notified.";
+        return ApiResponse.ok(message, payment);
+    }
+
+    @PostMapping("/payments/{paymentId}/reject")
+    ApiResponse<PaymentResponse> rejectPayment(@PathVariable Long paymentId, @RequestBody(required = false) com.matrimony.backend.dto.request.PaymentRequests.RejectPaymentRequest request) {
+        return ApiResponse.ok("Payment rejected", paymentService.rejectManualPayment(paymentId, request == null ? null : request.reason()));
+    }
 
     @PostMapping("/payments/{paymentId}/refund-request")
     ApiResponse<Void> refundRequest(@PathVariable Long paymentId) { return ApiResponse.ok("Refund request recorded for gateway confirmation", null); }
@@ -134,4 +162,26 @@ public class AdminController {
 
     @DeleteMapping("/relationship-managers/{managerId}/customers/{userId}")
     ResponseEntity<Void> unassign(@PathVariable Long managerId, @PathVariable Long userId) { relationshipManagerService.unassign(managerId, userId); return ResponseEntity.noContent().build(); }
+
+    // Success Stories
+    @GetMapping("/success-stories")
+    ApiResponse<com.matrimony.backend.dto.PageResponse<?>> adminStories(@org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) { return ApiResponse.ok("Stories", supportService.allStories(pageable)); }
+
+    @PostMapping("/success-stories")
+    ApiResponse<Object> adminCreateStory(@jakarta.validation.Valid @RequestBody com.matrimony.backend.dto.request.SupportRequests.SuccessStoryRequest request) { return ApiResponse.ok("Story created", supportService.createSuccessStory(request)); }
+
+    @PatchMapping("/success-stories/{storyId}/approve")
+    ApiResponse<Void> approveStory(@PathVariable Long storyId) { supportService.approveStory(storyId); return ApiResponse.ok("Story approved", null); }
+
+    @PatchMapping("/success-stories/{storyId}/reject")
+    ApiResponse<Void> rejectStory(@PathVariable Long storyId, @RequestBody(required = false) java.util.Map<String, String> body) { supportService.rejectStory(storyId, body != null ? body.get("reason") : null); return ApiResponse.ok("Story rejected", null); }
+
+    @DeleteMapping("/success-stories/{storyId}")
+    ResponseEntity<Void> adminDeleteStory(@PathVariable Long storyId) { supportService.deleteStory(storyId); return ResponseEntity.noContent().build(); }
+
+    @PostMapping(value = "/success-stories/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    ApiResponse<String> uploadStoryPhoto(@RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
+        com.matrimony.backend.service.FileStorageService.StoredFile stored = fileStorageService.storeProfilePhoto(file, "admin_success_stories");
+        return ApiResponse.ok("Photo uploaded successfully", stored.url());
+    }
 }

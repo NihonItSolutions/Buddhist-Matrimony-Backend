@@ -10,6 +10,7 @@ import com.matrimony.backend.exception.*;
 import com.matrimony.backend.mapper.ProfileMapper;
 import com.matrimony.backend.repository.*;
 import com.matrimony.backend.security.CurrentUser;
+import com.matrimony.backend.service.EntitlementService;
 import com.matrimony.backend.service.InteractionService;
 import com.matrimony.backend.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class InteractionServiceImpl implements InteractionService {
     private final BlockedProfileRepository blockedRepository;
     private final ProfileReportRepository reportRepository;
     private final ContactRequestRepository contactRequestRepository;
+    private final UserSubscriptionRepository subscriptionRepository;
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final NotificationRepository notificationRepository;
@@ -40,6 +42,7 @@ public class InteractionServiceImpl implements InteractionService {
     private final CareerDetailsRepository careerRepository;
     private final ProfilePhotoRepository photoRepository;
     private final ProfileMapper mapper;
+    private final EntitlementService entitlementService;
 
     @Override
     @Transactional
@@ -57,7 +60,8 @@ public class InteractionServiceImpl implements InteractionService {
         interest.setMessage(TextSanitizer.clean(request == null ? null : request.message()));
         interest.setSentAt(LocalDateTime.now());
         interestRepository.save(interest);
-        notify(receiver.getUser(), NotificationType.INTEREST_RECEIVED, "Interest received", "A profile has sent you an interest", "INTEREST", interest.getId());
+        String senderLabel = (sender.getFirstName() != null && !sender.getFirstName().isBlank()) ? sender.getFirstName() + " (" + sender.getUser().getMatrimonyId() + ")" : sender.getUser().getMatrimonyId();
+        notify(receiver.getUser(), NotificationType.INTEREST_RECEIVED, "Interest received", senderLabel + " has sent you an interest.", "INTEREST", interest.getId());
         return toInterest(interest);
     }
 
@@ -78,14 +82,7 @@ public class InteractionServiceImpl implements InteractionService {
     public PageResponse<InterestResponse> interestsByStatus(String status, Pageable pageable) {
         MatrimonyProfile profile = currentProfile();
         InterestStatus interestStatus = InterestStatus.valueOf(status);
-        Page<InterestResponse> page = interestRepository.findAll(pageable).map(this::toInterest)
-                .map(response -> response);
-        List<InterestResponse> content = interestRepository.findAll(pageable).getContent().stream()
-                .filter(interest -> interest.getStatus() == interestStatus)
-                .filter(interest -> interest.getSenderProfile().getId().equals(profile.getId()) || interest.getReceiverProfile().getId().equals(profile.getId()))
-                .map(this::toInterest)
-                .toList();
-        return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isFirst(), page.isLast());
+        return page(interestRepository.findForProfileByStatus(profile.getId(), interestStatus, pageable).map(this::toInterest));
     }
 
     @Override
@@ -94,7 +91,9 @@ public class InteractionServiceImpl implements InteractionService {
         Interest interest = ownedReceivedInterest(interestId);
         interest.setStatus(InterestStatus.ACCEPTED);
         interest.setRespondedAt(LocalDateTime.now());
-        notify(interest.getSenderProfile().getUser(), NotificationType.INTEREST_ACCEPTED, "Interest accepted", "Your interest was accepted", "INTEREST", interest.getId());
+        MatrimonyProfile responder = interest.getReceiverProfile();
+        String respLabel = (responder.getFirstName() != null && !responder.getFirstName().isBlank()) ? responder.getFirstName() + " (" + responder.getUser().getMatrimonyId() + ")" : responder.getUser().getMatrimonyId();
+        notify(interest.getSenderProfile().getUser(), NotificationType.INTEREST_ACCEPTED, "Interest accepted", respLabel + " accepted your interest.", "INTEREST", interest.getId());
         return toInterest(interest);
     }
 
@@ -104,7 +103,9 @@ public class InteractionServiceImpl implements InteractionService {
         Interest interest = ownedReceivedInterest(interestId);
         interest.setStatus(InterestStatus.DECLINED);
         interest.setRespondedAt(LocalDateTime.now());
-        notify(interest.getSenderProfile().getUser(), NotificationType.INTEREST_DECLINED, "Interest declined", "Your interest was declined", "INTEREST", interest.getId());
+        MatrimonyProfile responder = interest.getReceiverProfile();
+        String respLabel = (responder.getFirstName() != null && !responder.getFirstName().isBlank()) ? responder.getFirstName() + " (" + responder.getUser().getMatrimonyId() + ")" : responder.getUser().getMatrimonyId();
+        notify(interest.getSenderProfile().getUser(), NotificationType.INTEREST_DECLINED, "Interest declined", respLabel + " declined your interest.", "INTEREST", interest.getId());
         return toInterest(interest);
     }
 
@@ -237,7 +238,8 @@ public class InteractionServiceImpl implements InteractionService {
         request.setReceiverProfile(receiver);
         request.setRequestedAt(LocalDateTime.now());
         contactRequestRepository.save(request);
-        notify(receiver.getUser(), NotificationType.CONTACT_REQUEST, "Contact request", "A profile requested your contact details", "CONTACT_REQUEST", request.getId());
+        String reqLabel = (requester.getFirstName() != null && !requester.getFirstName().isBlank()) ? requester.getFirstName() + " (" + requester.getUser().getMatrimonyId() + ")" : requester.getUser().getMatrimonyId();
+        notify(receiver.getUser(), NotificationType.CONTACT_REQUEST, "Contact request", reqLabel + " requested your contact details.", "CONTACT_REQUEST", request.getId());
         return toContact(request);
     }
 
@@ -259,7 +261,9 @@ public class InteractionServiceImpl implements InteractionService {
         ContactRequest request = ownedReceivedContact(requestId);
         request.setStatus(ContactRequestStatus.APPROVED);
         request.setRespondedAt(LocalDateTime.now());
-        notify(request.getRequesterProfile().getUser(), NotificationType.CONTACT_REQUEST_APPROVED, "Contact approved", "Your contact request was approved", "CONTACT_REQUEST", request.getId());
+        MatrimonyProfile approver = request.getReceiverProfile();
+        String appLabel = (approver.getFirstName() != null && !approver.getFirstName().isBlank()) ? approver.getFirstName() + " (" + approver.getUser().getMatrimonyId() + ")" : approver.getUser().getMatrimonyId();
+        notify(request.getRequesterProfile().getUser(), NotificationType.CONTACT_REQUEST_APPROVED, "Contact approved", appLabel + " approved your contact request.", "CONTACT_REQUEST", request.getId());
         return toContact(request);
     }
 
@@ -285,17 +289,44 @@ public class InteractionServiceImpl implements InteractionService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public ContactDetailsResponse contactDetails(String matrimonyId) {
         MatrimonyProfile requester = currentProfile();
         MatrimonyProfile receiver = activeProfile(matrimonyId);
         ensureNotBlocked(requester, receiver);
-        boolean approved = contactRequestRepository.findFirstByRequesterProfileIdAndReceiverProfileIdOrderByRequestedAtDesc(requester.getId(), receiver.getId())
-                .map(request -> request.getStatus() == ContactRequestStatus.APPROVED)
-                .orElse(false);
-        if (!approved) {
-            throw new SubscriptionRequiredException("Approved contact request or subscription entitlement required");
+
+        // Check if user has any active plan at all
+        if (!entitlementService.hasActivePlan(requester.getUser())) {
+            throw new SubscriptionRequiredException("Paid membership is required to view contact number and WhatsApp details");
         }
+
+        // Get the active subscription (guaranteed to exist at this point)
+        UserSubscription subscription = entitlementService.activeSubscription(requester.getUser())
+                .orElseThrow(() -> new SubscriptionRequiredException("Active subscription required to view contact details"));
+
+        boolean alreadyUnlocked = contactRequestRepository.existsByRequesterProfileIdAndReceiverProfileIdAndStatus(requester.getId(), receiver.getId(), ContactRequestStatus.APPROVED)
+                || contactRequestRepository.existsByRequesterProfileIdAndReceiverProfileIdAndStatus(receiver.getId(), requester.getId(), ContactRequestStatus.APPROVED);
+
+        if (!alreadyUnlocked) {
+            // Check remaining contact view quota
+            if (subscription.getRemainingContactViews() == null || subscription.getRemainingContactViews() <= 0) {
+                throw new SubscriptionRequiredException("You have reached the contact view limit of your plan. Please purchase a new plan to unlock more contacts.");
+            }
+
+            // Decrement remaining views
+            subscription.setRemainingContactViews(subscription.getRemainingContactViews() - 1);
+            subscriptionRepository.save(subscription);
+
+            // Record as APPROVED contact request (to save the unlock state)
+            ContactRequest unlockRequest = new ContactRequest();
+            unlockRequest.setRequesterProfile(requester);
+            unlockRequest.setReceiverProfile(receiver);
+            unlockRequest.setStatus(ContactRequestStatus.APPROVED);
+            unlockRequest.setRequestedAt(LocalDateTime.now());
+            unlockRequest.setRespondedAt(LocalDateTime.now());
+            contactRequestRepository.save(unlockRequest);
+        }
+
         User user = receiver.getUser();
         return new ContactDetailsResponse(user.getMatrimonyId(), user.getEmail(), user.getCountryCode() + user.getMobileNumber());
     }
@@ -340,13 +371,23 @@ public class InteractionServiceImpl implements InteractionService {
         MatrimonyProfile sender = currentProfile();
         MatrimonyProfile receiver = conversation.getProfileOne().getId().equals(sender.getId()) ? conversation.getProfileTwo() : conversation.getProfileOne();
         ensureMessagingAllowed(sender, receiver);
+
+        // Deduct one message from the sender's remaining quota
+        entitlementService.activeSubscription(sender.getUser()).ifPresent(subscription -> {
+            if (subscription.getRemainingMessages() != null && subscription.getRemainingMessages() > 0) {
+                subscription.setRemainingMessages(subscription.getRemainingMessages() - 1);
+                subscriptionRepository.save(subscription);
+            }
+        });
+
         Message message = new Message();
         message.setConversation(conversation);
         message.setSenderProfile(sender);
         message.setMessageText(TextSanitizer.clean(request.messageText()));
         message.setSentAt(LocalDateTime.now());
         messageRepository.save(message);
-        notify(receiver.getUser(), NotificationType.NEW_MESSAGE, "New message", "You received a new message", "CONVERSATION", conversation.getId());
+        String senderLabel = (sender.getFirstName() != null && !sender.getFirstName().isBlank()) ? sender.getFirstName() + " (" + sender.getUser().getMatrimonyId() + ")" : sender.getUser().getMatrimonyId();
+        notify(receiver.getUser(), NotificationType.NEW_MESSAGE, "New message", "New message from " + senderLabel + ".", "CONVERSATION", conversation.getId());
         return toMessage(message);
     }
 
@@ -441,9 +482,11 @@ public class InteractionServiceImpl implements InteractionService {
 
     private void ensureMessagingAllowed(MatrimonyProfile a, MatrimonyProfile b) {
         ensureNotBlocked(a, b);
-        boolean accepted = interestRepository.findActiveBetween(a.getId(), b.getId(), List.of(InterestStatus.ACCEPTED)).isPresent();
-        if (!accepted) {
-            throw new SubscriptionRequiredException("Messaging requires accepted interest or membership entitlement");
+        if (!entitlementService.hasActivePlan(a.getUser())) {
+            throw new SubscriptionRequiredException("Paid membership is required to send messages");
+        }
+        if (!entitlementService.canMessage(a.getUser())) {
+            throw new SubscriptionRequiredException("You have reached the message limit of your plan. Please purchase a new plan to send more messages.");
         }
     }
 
@@ -495,13 +538,15 @@ public class InteractionServiceImpl implements InteractionService {
     }
 
     private ProfileCardResponse card(MatrimonyProfile owner, MatrimonyProfile target) {
+        boolean hasActivePlan = entitlementService.hasActivePlan(owner.getUser());
         return mapper.toCard(target,
                 educationRepository.findByProfileId(target.getId()).orElse(null),
                 careerRepository.findByProfileId(target.getId()).orElse(null),
-                photoRepository.findFirstByProfileIdAndPrimaryPhotoTrueAndModerationStatus(target.getId(), ModerationStatus.APPROVED).orElse(null),
+                photoRepository.findDisplayPhoto(target.getId()).orElse(null),
                 shortlistRepository.existsByOwnerProfileIdAndShortlistedProfileId(owner.getId(), target.getId()),
                 interestRepository.findActiveBetween(owner.getId(), target.getId(), ACTIVE_INTEREST_STATUSES).map(i -> i.getStatus().name()).orElse(null),
-                0);
+                0,
+                hasActivePlan);
     }
 
     private InterestResponse toInterest(Interest interest) {

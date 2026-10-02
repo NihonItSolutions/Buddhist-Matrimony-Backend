@@ -14,7 +14,16 @@ public interface ProfilePhotoRepository extends JpaRepository<ProfilePhoto, Long
 
     long countByProfileId(Long profileId);
 
+    Optional<ProfilePhoto> findFirstByProfileIdAndPrimaryPhotoTrueAndModerationStatusNot(Long profileId, ModerationStatus moderationStatus);
+
+    Optional<ProfilePhoto> findFirstByProfileIdAndModerationStatusNotOrderByDisplayOrderAsc(Long profileId, ModerationStatus moderationStatus);
+
     Optional<ProfilePhoto> findFirstByProfileIdAndPrimaryPhotoTrueAndModerationStatus(Long profileId, ModerationStatus status);
+
+    default Optional<ProfilePhoto> findDisplayPhoto(Long profileId) {
+        return findFirstByProfileIdAndPrimaryPhotoTrueAndModerationStatusNot(profileId, ModerationStatus.REJECTED)
+                .or(() -> findFirstByProfileIdAndModerationStatusNotOrderByDisplayOrderAsc(profileId, ModerationStatus.REJECTED));
+    }
 
     Page<ProfilePhoto> findByModerationStatus(ModerationStatus moderationStatus, Pageable pageable);
 }

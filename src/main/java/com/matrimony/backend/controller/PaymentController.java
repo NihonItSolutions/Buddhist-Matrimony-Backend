@@ -30,6 +30,16 @@ public class PaymentController {
         return ApiResponse.ok("Payment verified", service.verify(request));
     }
 
+    @PostMapping("/{paymentId}/upi-reference")
+    ApiResponse<PaymentResponse> upiReference(@PathVariable Long paymentId, @Valid @RequestBody PaymentRequests.UpiReferenceRequest request) {
+        return ApiResponse.ok("Payment reference submitted for verification", service.submitUpiReference(paymentId, request));
+    }
+
+    @GetMapping("/upi-info")
+    ApiResponse<com.matrimony.backend.dto.response.PaymentResponses.UpiInfoResponse> upiInfo() {
+        return ApiResponse.ok("UPI details", service.upiInfo());
+    }
+
     @PostMapping("/webhook")
     ApiResponse<Void> webhook(@RequestHeader(value = "X-Payment-Signature", required = false) String signature,
                               @Valid @RequestBody PaymentRequests.WebhookRequest request) {
@@ -38,7 +48,7 @@ public class PaymentController {
     }
 
     @GetMapping("/me")
-    ApiResponse<PageResponse<PaymentResponse>> me(@PageableDefault(size = 20) Pageable pageable) {
+    ApiResponse<PageResponse<PaymentResponse>> me(@PageableDefault(size = 20, sort = "id", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
         return ApiResponse.ok("Payments", service.myPayments(pageable));
     }
 

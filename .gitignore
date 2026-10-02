@@ -6,3 +6,8 @@ uploads/
 Thumbs.db
 .idea/
 *.iml
+
+# Local database secrets
+supabase-local.properties
+.env.supabase
+local-secrets.properties

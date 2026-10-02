@@ -14,6 +14,7 @@ import com.matrimony.backend.service.FileStorageService;
 import com.matrimony.backend.service.MatchRecommendationService;
 import com.matrimony.backend.service.ProfileCompletionService;
 import com.matrimony.backend.service.ProfileService;
+import com.matrimony.backend.service.EntitlementService;
 import com.matrimony.backend.specification.ProfileSpecifications;
 import com.matrimony.backend.util.TextSanitizer;
 import lombok.RequiredArgsConstructor;
@@ -45,10 +46,12 @@ public class ProfileServiceImpl implements ProfileService {
     private final ProfileViewRepository profileViewRepository;
     private final ShortlistedProfileRepository shortlistRepository;
     private final InterestRepository interestRepository;
+    private final ContactRequestRepository contactRequestRepository;
     private final BlockedProfileRepository blockedProfileRepository;
     private final FileStorageService fileStorageService;
     private final ProfileCompletionService completionService;
     private final MatchRecommendationService recommendationService;
+    private final EntitlementService entitlementService;
     private final ProfileMapper mapper;
 
     @Override
@@ -97,10 +100,13 @@ public class ProfileServiceImpl implements ProfileService {
         profile.setDateOfBirth(request.dateOfBirth());
         profile.setHeightInCm(request.heightInCm());
         profile.setWeightInKg(request.weightInKg());
+        profile.setBloodGroup(request.bloodGroup());
         profile.setMaritalStatus(request.maritalStatus());
         profile.setNumberOfChildren(request.numberOfChildren());
         profile.setChildrenLivingStatus(request.childrenLivingStatus());
         profile.setPhysicalStatus(request.physicalStatus());
+        if (request.leavingCertificateUrl() != null) profile.setLeavingCertificateUrl(request.leavingCertificateUrl());
+        if (request.aadharCardUrl() != null) profile.setAadharCardUrl(request.aadharCardUrl());
         recalculate(profile);
         return detailsFor(profile, true);
     }
@@ -315,6 +321,13 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
+    @Transactional
+    public String uploadDocument(MultipartFile file) {
+        MatrimonyProfile profile = currentProfile();
+        return fileStorageService.storeDocument(file, profile.getUser().getMatrimonyId()).url();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<PhotoResponse> photos() {
         return photoRepository.findByProfileIdOrderByDisplayOrderAsc(currentProfile().getId()).stream()
@@ -413,7 +426,7 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public PageResponse<ProfileCardResponse> search(ProfileSearchRequest request, Pageable pageable) {
         MatrimonyProfile current = currentProfile();
-        Page<MatrimonyProfile> page = profileRepository.findAll(ProfileSpecifications.search(request, current.getId()), pageable);
+        Page<MatrimonyProfile> page = profileRepository.findAll(ProfileSpecifications.search(request, current.getId(), oppositeGender(current.getGender())), pageable);
         List<ProfileCardResponse> content = page.getContent().stream()
                 .filter(profile -> !blockedProfileRepository.existsByBlockedByProfileIdAndBlockedProfileIdOrBlockedByProfileIdAndBlockedProfileId(current.getId(), profile.getId(), profile.getId(), current.getId()))
                 .map(profile -> toCard(current, profile))
@@ -443,9 +456,8 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public PageResponse<MatchRecommendationResponse> recommendations(Pageable pageable) {
         MatrimonyProfile current = currentProfile();
-        Page<MatrimonyProfile> page = profileRepository.findByProfileStatus(ProfileStatus.ACTIVE, pageable);
+        Page<MatrimonyProfile> page = matchPage(current, pageable);
         List<MatchRecommendationResponse> content = page.getContent().stream()
-                .filter(profile -> !profile.getId().equals(current.getId()))
                 .map(profile -> recommendationService.score(current, profile))
                 .toList();
         return new PageResponse<>(content, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages(), page.isFirst(), page.isLast());
@@ -455,12 +467,29 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public PageResponse<ProfileCardResponse> simpleProfilePage(String type, Pageable pageable) {
         MatrimonyProfile current = currentProfile();
-        Page<MatrimonyProfile> profiles = profileRepository.findByProfileStatus(ProfileStatus.ACTIVE, pageable);
+        Page<MatrimonyProfile> profiles = matchPage(current, pageable);
         List<ProfileCardResponse> content = profiles.getContent().stream()
-                .filter(profile -> !profile.getId().equals(current.getId()))
                 .map(profile -> toCard(current, profile))
                 .toList();
         return new PageResponse<>(content, profiles.getNumber(), profiles.getSize(), profiles.getTotalElements(), profiles.getTotalPages(), profiles.isFirst(), profiles.isLast());
+    }
+
+    private Page<MatrimonyProfile> matchPage(MatrimonyProfile current, Pageable pageable) {
+        Gender gender = oppositeGender(current.getGender());
+        if (gender == null) {
+            return profileRepository.findByProfileStatusAndIdNot(ProfileStatus.ACTIVE, current.getId(), pageable);
+        }
+        return profileRepository.findByProfileStatusAndGenderAndIdNot(ProfileStatus.ACTIVE, gender, current.getId(), pageable);
+    }
+
+    private Gender oppositeGender(Gender gender) {
+        if (gender == Gender.MALE) {
+            return Gender.FEMALE;
+        }
+        if (gender == Gender.FEMALE) {
+            return Gender.MALE;
+        }
+        return null;
     }
 
     private MatrimonyProfile currentProfile() {
@@ -512,6 +541,16 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private ProfileDetailsResponse detailsFor(MatrimonyProfile profile, boolean owner) {
+        MatrimonyProfile current = owner ? profile : currentProfile();
+        boolean sameProfile = current.getId().equals(profile.getId());
+        boolean hasActivePlan = owner || entitlementService.hasActivePlan(current.getUser());
+        boolean shortlisted = !sameProfile && shortlistRepository.existsByOwnerProfileIdAndShortlistedProfileId(current.getId(), profile.getId());
+        String interestStatus = !sameProfile ? interestRepository.findActiveBetween(current.getId(), profile.getId(), List.of(InterestStatus.PENDING, InterestStatus.ACCEPTED))
+                .map(interest -> interest.getStatus().name())
+                .orElse(null) : null;
+        String contactRequestStatus = !sameProfile ? contactRequestRepository.findFirstByRequesterProfileIdAndReceiverProfileIdOrderByRequestedAtDesc(current.getId(), profile.getId())
+                .map(request -> request.getStatus().name())
+                .orElse(null) : null;
         return mapper.toDetails(
                 profile,
                 educationRepository.findByProfileId(profile.getId()).orElse(null),
@@ -522,20 +561,25 @@ public class ProfileServiceImpl implements ProfileService {
                 preferenceRepository.findByProfileId(profile.getId()).orElse(null),
                 photoRepository.findByProfileIdOrderByDisplayOrderAsc(profile.getId()),
                 owner,
-                owner
+                owner,
+                shortlisted,
+                interestStatus,
+                contactRequestStatus,
+                hasActivePlan
         );
     }
 
     private ProfileCardResponse toCard(MatrimonyProfile current, MatrimonyProfile target) {
         EducationDetails education = educationRepository.findByProfileId(target.getId()).orElse(null);
         CareerDetails career = careerRepository.findByProfileId(target.getId()).orElse(null);
-        ProfilePhoto photo = photoRepository.findFirstByProfileIdAndPrimaryPhotoTrueAndModerationStatus(target.getId(), ModerationStatus.APPROVED).orElse(null);
+        ProfilePhoto photo = photoRepository.findDisplayPhoto(target.getId()).orElse(null);
         boolean shortlisted = shortlistRepository.existsByOwnerProfileIdAndShortlistedProfileId(current.getId(), target.getId());
         String interestStatus = interestRepository.findActiveBetween(current.getId(), target.getId(), List.of(InterestStatus.PENDING, InterestStatus.ACCEPTED))
                 .map(interest -> interest.getStatus().name())
                 .orElse(null);
         int score = recommendationService.score(current, target).matchScore();
-        return mapper.toCard(target, education, career, photo, shortlisted, interestStatus, score);
+        boolean hasActivePlan = entitlementService.hasActivePlan(current.getUser());
+        return mapper.toCard(target, education, career, photo, shortlisted, interestStatus, score, hasActivePlan);
     }
 
     private PartnerPreferenceRequest toPreferenceRequest(PartnerPreference preference) {

@@ -11,9 +11,12 @@ public record PersonalDetailsRequest(
         @NotNull LocalDate dateOfBirth,
         @Min(100) @Max(230) Integer heightInCm,
         @Min(25) @Max(250) Integer weightInKg,
+        String bloodGroup,
         MaritalStatus maritalStatus,
         @Min(0) Integer numberOfChildren,
         String childrenLivingStatus,
-        String physicalStatus
+        String physicalStatus,
+        String leavingCertificateUrl,
+        String aadharCardUrl
 ) {
 }

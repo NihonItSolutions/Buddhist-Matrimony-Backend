@@ -38,6 +38,8 @@ public interface AdminService {
     void suspendProfile(Long id);
 
     void reactivateProfile(Long id);
+    void verifyDocuments(Long profileId, boolean verified);
+
 
     PageResponse<PhotoResponse> pendingPhotos(Pageable pageable);
 
